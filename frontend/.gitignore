@@ -1,0 +1,25 @@
+*.iml
+.gradle
+
+# Propiedades locales (contiene ruta del SDK y puede contener claves)
+local.properties
+/local.properties
+
+# Archivos de secretos — NUNCA subir al repositorio
+secrets.properties
+google-services.json
+
+# Keystores y claves de firma de la app
+*.jks
+*.keystore
+key.properties
+
+# Carpeta .idea (contiene rutas y configuración local)
+/.idea/
+
+# Build outputs
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
