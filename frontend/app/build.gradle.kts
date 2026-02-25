@@ -41,11 +41,15 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    // ✨ Google Maps SDK
+    //  Google Maps SDK
     implementation("com.google.android.gms:play-services-maps:18.2.0")
 
-    // (Opcional pero recomendado) Utilidades de Maps para dibujar rutas más fácil
+    // Utilidades de Maps para dibujar rutas más fácil
     implementation("com.google.maps.android:android-maps-utils:3.8.0")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("com.google.android.libraries.places:places:3.3.0")
+
+    // Retrofit y conversor de JSON (Gson)
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 }

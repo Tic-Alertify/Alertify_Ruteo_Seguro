@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/google_map"
@@ -32,7 +33,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="24dp"
+            android:animateLayoutChanges="true">
 
             <TextView
                 android:layout_width="match_parent"
@@ -73,29 +75,64 @@
                 app:cardCornerRadius="25dp"
                 app:cardElevation="0dp">
 
-                <EditText
-                    android:id="@+id/et_destino"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:hint="¿A dónde quieres ir?"
-                    android:background="@null"
-                    android:gravity="center_vertical"
-                    android:paddingStart="20dp"
-                    android:textColor="#333333"
-                    android:textColorHint="#888888"
-                    android:textSize="16sp"
-                    android:drawableStart="@android:drawable/ic_menu_search"
-                    android:drawablePadding="12dp"
-                    android:inputType="textNoSuggestions"
-                    android:maxLines="1"/>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/et_destino"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:hint="@string/a_d_nde_quieres_ir"
+                        android:background="@null"
+                        android:paddingStart="20dp"
+                        android:textColor="#333333"
+                        android:textColorHint="#888888"
+                        android:textSize="16sp"
+                        android:drawableStart="@android:drawable/ic_menu_search"
+                        android:drawablePadding="12dp"
+                        android:inputType="textNoSuggestions"
+                        android:maxLines="1"
+                        tools:ignore="RtlSymmetry" />
+
+                    <ImageView
+                        android:id="@+id/iv_clear_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:paddingHorizontal="16dp"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        app:tint="#888888"
+                        android:visibility="gone"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:contentDescription="@string/limpiar_b_squeda" />
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_sugerencias"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:nestedScrollingEnabled="false"/>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_sugerencias"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:nestedScrollingEnabled="true"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_confirmar_ubicacion"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:layout_marginTop="16dp"
+                android:text="@string/confirmar_ubicaci_n"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:cornerRadius="25dp"
+                android:visibility="gone"
+                app:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"/>
 
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

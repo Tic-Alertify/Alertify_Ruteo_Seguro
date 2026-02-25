@@ -27,7 +27,7 @@ class PlacesAdapter(
 
     override fun onBindViewHolder(holder: PlaceViewHolder, position: Int) {
         val prediction = predictions[position]
-        // Muestra el texto completo sugerido por Google (Ej: "Parque La Carolina, Quito")
+        // Muestra el texto completo sugerido por Google
         holder.tvName.text = prediction.getFullText(null).toString()
 
         holder.itemView.setOnClickListener { clickListener(prediction) }

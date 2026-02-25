@@ -2,6 +2,8 @@
     <string name="app_name">RuteoSeguro</string>
     <string name="ingresa_la_ruta">Ingresa la Ruta</string>
     <string name="t_ubicaci_n_gps">Tú ubicación (GPS)</string>
-    <string name="a_d_nde_quieres_ir">¿A dónde quieres ir?</string>
     <string name="lugar_de_ejemplo_quito">Lugar de ejemplo, Quito</string>
+    <string name="a_d_nde_quieres_ir">¿A dónde quieres ir?</string>
+    <string name="limpiar_b_squeda">Limpiar búsqueda</string>
+    <string name="confirmar_ubicaci_n">Confirmar ubicación</string>
 </resources>
