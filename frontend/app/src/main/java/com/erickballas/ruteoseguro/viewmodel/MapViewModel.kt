@@ -44,6 +44,12 @@ class MapViewModel : ViewModel() {
         _errorMessage.value = null
     }
 
+    /** Resetea el destino para volver al flujo de búsqueda */
+    fun clearDestino() {
+        _coordenadaDestino.value = null
+        _rutaPolyline.value = null
+    }
+
     // ─── T-04: Validación de coordenadas dentro del área de Pichincha ───────
 
     fun setOrigen(latLng: LatLng) {

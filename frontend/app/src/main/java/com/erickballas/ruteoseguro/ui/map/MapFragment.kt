@@ -58,6 +58,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private lateinit var etDestino: EditText
     private lateinit var ivClearText: ImageView
     private lateinit var btnConfirmarUbicacion: MaterialButton
+    private lateinit var btnCambiarDestino: MaterialButton
     private lateinit var rvSugerencias: RecyclerView
     private lateinit var placesAdapter: PlacesAdapter
 
@@ -97,6 +98,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         etDestino = view.findViewById(R.id.et_destino)
         ivClearText = view.findViewById(R.id.iv_clear_text)
         btnConfirmarUbicacion = view.findViewById(R.id.btn_confirmar_ubicacion)
+        btnCambiarDestino = view.findViewById(R.id.btn_cambiar_destino)
         rvSugerencias = view.findViewById(R.id.rv_sugerencias)
 
         val mapFragment = childFragmentManager.findFragmentById(R.id.google_map) as SupportMapFragment?
@@ -122,7 +124,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     /**
-     * T-03 + T-04: Observa los StateFlow de coordenadas VALIDADAS del ViewModel.
      * La cámara y los marcadores solo se actualizan si el ViewModel aceptó la coordenada,
      * lo que garantiza que nunca se muestre un punto fuera de Pichincha en el mapa.
      */
@@ -176,9 +177,34 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             etDestino.isEnabled = false
             ivClearText.visibility = View.GONE
             btnConfirmarUbicacion.visibility = View.GONE
+            btnCambiarDestino.visibility = View.VISIBLE
 
             // Enviar la orden al ViewModel para llamar al backend (NestJS)
             viewModel.solicitarRutaSegura()
+        }
+
+        // Lógica de Cambiar Destino — vuelve al flujo de búsqueda
+        btnCambiarDestino.setOnClickListener {
+            btnCambiarDestino.visibility = View.GONE
+            etDestino.text.clear()
+            etDestino.isEnabled = true
+            ivClearText.visibility = View.GONE
+            rvSugerencias.visibility = View.GONE
+            placesAdapter.submitList(emptyList())
+            destinoMarker?.remove()
+            destinoMarker = null
+            viewModel.clearDestino()
+
+            // Volver la cámara a la ubicación de origen
+            viewModel.coordenadaOrigen.value?.let { origen ->
+                if (::googleMap.isInitialized) {
+                    googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(origen, 16f))
+                }
+            }
+
+            etDestino.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etDestino, InputMethodManager.SHOW_IMPLICIT)
         }
     }
 
@@ -223,7 +249,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun buscarSugerencias(query: String) {
-        // T-02: Restricción geográfica a Pichincha para sugerencias más relevantes
+        // Restricción geográfica a Pichincha para sugerencias más relevantes
         val request = FindAutocompletePredictionsRequest.builder()
             .setQuery(query)
             .setCountry("EC")
@@ -250,7 +276,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         placesClient.fetchPlace(request).addOnSuccessListener { response ->
             val place = response.place
             place.latLng?.let { destino ->
-                // T-04: setDestino valida que esté dentro de Pichincha.
+                // setDestino valida que esté dentro de Pichincha.
                 // Si acepta, observarCoordenadas() colocará el marcador y moverá la cámara.
                 viewModel.setDestino(destino)
             }
