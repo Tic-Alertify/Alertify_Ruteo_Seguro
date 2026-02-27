@@ -7,11 +7,13 @@ import { Arista } from './modules/ruteo/infrastructure/entities/arista.entity';
 import { Incidente } from './modules/ruteo/infrastructure/entities/incidente.entity';
 
 import { RuteoModule } from './modules/ruteo/ruteo.module';
+import { databaseConfig, appConfig } from './config/env.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [databaseConfig, appConfig],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -19,13 +21,13 @@ import { RuteoModule } from './modules/ruteo/ruteo.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'mssql',
-        host: configService.get<string>('DB_HOST'),
-        port: +configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
+        host: configService.get<string>('database.host'),
+        port: configService.get<number>('database.port'),
+        username: configService.get<string>('database.username'),
+        password: configService.get<string>('database.password'),
+        database: configService.get<string>('database.database'),
         entities: [Nodo, Arista, Incidente],
-        synchronize: configService.get<string>('DB_SYNCHRONIZE') === 'true',
+        synchronize: configService.get<boolean>('database.synchronize'),
         options: {
           encrypt: true,
           trustServerCertificate: false,

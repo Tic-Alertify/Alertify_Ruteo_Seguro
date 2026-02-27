@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Nodo } from '../entities/nodo.entity';
+import { NodoDomain } from '../../domain/entities/nodo.domain';
+import { INodoRepository } from '../../domain/interfaces/nodo-repository.interfaces';
 
 @Injectable()
-export class NodoRepository {
+export class NodoRepository implements INodoRepository {
   constructor(
     @InjectRepository(Nodo)
     private readonly nodoRepo: Repository<Nodo>,
@@ -12,22 +14,42 @@ export class NodoRepository {
 
   /**
    * Encuentra el nodo (intersección) más cercano a las coordenadas enviadas por el celular.
-   * ¡Esta consulta está ultra-optimizada gracias al SPATIAL INDEX!
+   * Aprovecha el SPATIAL_IX_Nodos_Ubicacion definido en el script SQL.
    */
-  async findNodoMasCercano(latitud: number, longitud: number): Promise<Nodo> {
-    // Convertimos la coordenada de Kotlin a un punto WKT que SQL Server entienda
+  async findNodoMasCercano(latitud: number, longitud: number): Promise<NodoDomain> {
     const puntoOrigenWKT = `POINT(${longitud} ${latitud})`;
 
-    const nodoCercano = await this.nodoRepo
+    const nodo = await this.nodoRepo
       .createQueryBuilder('nodo')
-      // Utilizamos STDistance() de SQL Server para calcular la distancia en metros
-      .addSelect(`nodo.ubicacion.STDistance(geography::STGeomFromText('${puntoOrigenWKT}', 4326))`, 'distancia')
-      // Filtramos para asegurar que no nos devuelva nodos basura
+      .addSelect(
+        `nodo.ubicacion.STDistance(geography::STGeomFromText('${puntoOrigenWKT}', 4326))`,
+        'distancia',
+      )
       .where('nodo.es_interseccion = 1')
-      // Ordenamos por el que tenga menor distancia
       .orderBy('distancia', 'ASC')
       .getOne();
 
-    return nodoCercano;
+    return new NodoDomain({
+      id: nodo.id_nodo,
+      esInterseccion: Boolean(nodo.es_interseccion),
+      // La ubicación está en WKT: extraemos lat/lng del texto 'POINT(lng lat)'
+      lng: parseFloat(nodo.ubicacion.toString().replace('POINT (', '').split(' ')[0]),
+      lat: parseFloat(nodo.ubicacion.toString().replace('POINT (', '').split(' ')[1]),
+    });
+  }
+
+  /**
+   * Devuelve un nodo por su ID. Null si no existe.
+   */
+  async findById(id: string): Promise<NodoDomain | null> {
+    const nodo = await this.nodoRepo.findOne({ where: { id_nodo: id } });
+    if (!nodo) return null;
+
+    return new NodoDomain({
+      id: nodo.id_nodo,
+      esInterseccion: Boolean(nodo.es_interseccion),
+      lng: parseFloat(nodo.ubicacion.toString().replace('POINT (', '').split(' ')[0]),
+      lat: parseFloat(nodo.ubicacion.toString().replace('POINT (', '').split(' ')[1]),
+    });
   }
 }

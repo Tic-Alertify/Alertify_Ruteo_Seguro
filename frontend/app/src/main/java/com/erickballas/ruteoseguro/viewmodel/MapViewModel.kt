@@ -76,11 +76,15 @@ class MapViewModel : ViewModel() {
         val origen = _coordenadaOrigen.value
         val destino = _coordenadaDestino.value
 
+        Log.d("MapViewModel", "solicitarRutaSegura() — origen=$origen | destino=$destino")
+
         if (origen == null || destino == null) {
             _errorMessage.value = "Debes definir un origen y un destino válidos"
+            Log.w("MapViewModel", "Solicitud cancelada: origen o destino nulos")
             return
         }
 
+        Log.d("MapViewModel", "Enviando petición → (${origen.latitude}, ${origen.longitude}) → (${destino.latitude}, ${destino.longitude})")
         _isLoadingRoute.value = true
 
         viewModelScope.launch {

@@ -1,3 +1,6 @@
+// 1. <--- ESTO FALTABA: Importar Properties al inicio --->
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
@@ -17,6 +20,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val properties = Properties()
+        val localPropertiesFile = project.rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+
+        val baseUrl = properties.getProperty("BASE_URL") ?: "\"\""
+        buildConfigField("String", "BASE_URL", baseUrl)
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
