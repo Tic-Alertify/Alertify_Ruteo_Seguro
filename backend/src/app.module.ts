@@ -33,6 +33,11 @@ import { databaseConfig, appConfig } from './config/env.config';
           trustServerCertificate: false,
           enableArithAbort: true,
         },
+        // Aumentamos los timeouts para consultas espaciales y carga inicial del grafo.
+        // requestTimeout: tiempo máximo de una query individual (ms).
+        // connectionTimeout: tiempo para establecer la conexión inicial (ms).
+        requestTimeout: 60_000,
+        connectionTimeout: 30_000,
         logging: true,
       }),
     }),

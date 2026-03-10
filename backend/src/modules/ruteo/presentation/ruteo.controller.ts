@@ -26,7 +26,7 @@ export class RuteoController {
   @ApiBody({ type: CalcularRutaDto })
   @ApiResponse({ status: 200, description: 'Ruta calculada exitosamente', type: RutaResponseDto })
   @ApiResponse({ status: 400, description: 'Coordenadas inválidas o fuera de rango' })
-  @ApiResponse({ status: 500, description: 'Error interno del servidor (T-06 pendiente)' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor' })
   async calcularRuta(@Body() dto: CalcularRutaDto): Promise<RutaResponseDto> {
     return this.ruteoService.calcularRuta(dto);
   }

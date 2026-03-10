@@ -12,6 +12,12 @@ export interface INodoRepository {
    * Devuelve un nodo por su ID. Null si no existe.
    */
   findById(id: string): Promise<NodoDomain | null>;
+
+  /**
+   * Devuelve todos los nodos del grafo.
+   * Usado para construir el grafo de adyacencia en memoria (T-06).
+   */
+  findAll(): Promise<NodoDomain[]>;
 }
 
 export interface IAristaRepository {
@@ -20,4 +26,10 @@ export interface IAristaRepository {
    * Usa el índice FK_Aristas_NodoOrigen (tabla ARISTAS del script SQL).
    */
   findByNodoOrigen(idNodo: string): Promise<AristaDomain[]>;
+
+  /**
+   * Devuelve todas las aristas del grafo.
+   * Usado para construir el grafo de adyacencia en memoria (T-06).
+   */
+  findAll(): Promise<AristaDomain[]>;
 }

@@ -31,11 +31,11 @@ export class GrafoDomain {
     this.nodos.set(nodo.id, nodo);
   }
 
-  agregarArista(arista: AristaDomain): void {
-    const lista = this.aristas.get(arista.idNodoOrigen) ?? [];
-    lista.push(arista);
-    this.aristas.set(arista.idNodoOrigen, lista);
-  }
+    agregarArista(arista: AristaDomain): void {
+      const lista = this.aristas.get(arista.idNodoOrigen) ?? [];
+      lista.push(arista);
+      this.aristas.set(arista.idNodoOrigen, lista);
+    }
 
   getVecinos(idNodo: string): AristaDomain[] {
     return this.aristas.get(idNodo) ?? [];
