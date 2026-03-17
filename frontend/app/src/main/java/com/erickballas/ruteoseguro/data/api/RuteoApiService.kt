@@ -8,7 +8,7 @@ import retrofit2.http.POST
 
 interface RuteoApiService {
 
-    // Suponiendo que tu endpoint en NestJS es POST /api/ruteo/calcular
+    // Endpoint POST /api/ruteo/calcular
     @POST("api/ruteo/calcular")
     suspend fun calcularRutaSegura(
         @Body request: RuteoRequest

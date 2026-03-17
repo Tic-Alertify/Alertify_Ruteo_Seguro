@@ -1,4 +1,3 @@
-// 1. <--- ESTO FALTABA: Importar Properties al inicio --->
 import java.util.Properties
 
 plugins {
@@ -24,11 +23,17 @@ android {
         val properties = Properties()
         val localPropertiesFile = project.rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
-            properties.load(localPropertiesFile.inputStream())
+            localPropertiesFile.inputStream().use(properties::load)
         }
 
-        val baseUrl = properties.getProperty("BASE_URL") ?: "\"\""
-        buildConfigField("String", "BASE_URL", baseUrl)
+        val rawBaseUrl = properties.getProperty("BASE_URL")?.trim()
+        val sanitizedBaseUrl = rawBaseUrl
+            ?.trim('"')
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        val baseUrlLiteral = "\"${sanitizedBaseUrl ?: "http://10.0.2.2:3000/"}\""
+        buildConfigField("String", "BASE_URL", baseUrlLiteral)
     }
 
     buildFeatures {
