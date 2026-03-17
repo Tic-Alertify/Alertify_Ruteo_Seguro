@@ -30,7 +30,7 @@ async function bootstrap() {
       'y consultar incidentes activos.',
     )
     .setVersion('1.0')
-    .addTag('Ruteo', 'Cálculo de rutas e incidentes')
+
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
