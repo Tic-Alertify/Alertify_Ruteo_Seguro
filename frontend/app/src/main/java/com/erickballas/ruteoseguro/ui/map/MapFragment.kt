@@ -6,7 +6,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.location.Location
 import android.os.Bundle
@@ -165,11 +164,11 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                         // T-12: 1. Preparamos el constructor de la "caja" de límites
                         val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
 
-                        val MAX_POINTS_PER_POLYLINE = 9500
+                        val max_points_per_polyline = 9500
                         var index = 0
 
                         while (index < puntos.size) {
-                            val endExclusive = minOf(index + MAX_POINTS_PER_POLYLINE, puntos.size)
+                            val endExclusive = minOf(index + max_points_per_polyline, puntos.size)
                             val segment = ArrayList<LatLng>()
 
                             if (index != 0) {
