@@ -1,13 +1,18 @@
+@file:Suppress("DEPRECATION")
+
 package com.erickballas.ruteoseguro.ui.map
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.location.Location
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +21,8 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -29,6 +36,10 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Polyline
+import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.gms.maps.model.RoundCap
+import com.google.android.gms.maps.model.JointType
 import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.model.RectangularBounds
@@ -43,7 +54,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
+import com.google.maps.android.PolyUtil
 import kotlinx.coroutines.launch
+import androidx.core.graphics.toColorInt
+import com.google.android.gms.maps.model.BitmapDescriptor
+import androidx.core.graphics.createBitmap
 
 class MapFragment : Fragment(), OnMapReadyCallback {
 
@@ -68,6 +83,12 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     // Marcadores de origen y destino en el mapa
     private var origenMarker: Marker? = null
     private var destinoMarker: Marker? = null
+
+    // Lista para guardar la ruta y poder borrarla después
+    private val rutaPolylines = mutableListOf<Polyline>()
+
+
+    private lateinit var layoutLoading: View
 
     // Lanzador para solicitar permisos de ubicación modernos
     private val requestLocationPermissionLauncher = registerForActivityResult(
@@ -100,6 +121,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         btnConfirmarUbicacion = view.findViewById(R.id.btn_confirmar_ubicacion)
         btnCambiarDestino = view.findViewById(R.id.btn_cambiar_destino)
         rvSugerencias = view.findViewById(R.id.rv_sugerencias)
+        layoutLoading = view.findViewById(R.id.layout_loading)
 
         val mapFragment = childFragmentManager.findFragmentById(R.id.google_map) as SupportMapFragment?
         mapFragment?.getMapAsync(this)
@@ -108,6 +130,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         configurarBuscador()
         observarErrores()
         observarCoordenadas()
+        observarRutaCalculada()
+        observarCarga()
     }
 
     private fun observarErrores() {
@@ -123,10 +147,79 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         }
     }
 
-    /**
-     * La cámara y los marcadores solo se actualizan si el ViewModel aceptó la coordenada,
-     * lo que garantiza que nunca se muestre un punto fuera de Pichincha en el mapa.
-     */
+    private fun observarRutaCalculada() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.rutaPolyline.collect { encodedPolyline ->
+                    if (!::googleMap.isInitialized) return@collect
+
+                    // Limpiamos la ruta anterior siempre que haya un cambio
+                    clearRutaPolyline()
+
+                    if (encodedPolyline.isNullOrBlank()) return@collect
+
+                    try {
+                        val puntos = PolyUtil.decode(encodedPolyline)
+                        if (puntos.isEmpty()) return@collect
+
+                        // T-12: 1. Preparamos el constructor de la "caja" de límites
+                        val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+
+                        val MAX_POINTS_PER_POLYLINE = 9500
+                        var index = 0
+
+                        while (index < puntos.size) {
+                            val endExclusive = minOf(index + MAX_POINTS_PER_POLYLINE, puntos.size)
+                            val segment = ArrayList<LatLng>()
+
+                            if (index != 0) {
+                                segment.add(puntos[index - 1])
+                            }
+                            segment.addAll(puntos.subList(index, endExclusive))
+
+                            // Dibujamos este segmento y lo guardamos en la lista
+                            val polyline = googleMap.addPolyline(
+                                PolylineOptions()
+                                    .addAll(segment)
+                                    .width(16f)
+                                    .color("#1E88E5".toColorInt())
+                                    .startCap(RoundCap())
+                                    .endCap(RoundCap())
+                                    .jointType(JointType.ROUND)
+                                    .geodesic(true)
+                                    .zIndex(2f)
+                            )
+                            rutaPolylines.add(polyline)
+
+                            // T-12: 2. Metemos todos los puntos del segmento en la caja
+                            for (punto in segment) {
+                                boundsBuilder.include(punto)
+                            }
+
+                            index = endExclusive
+                        }
+
+                        // T-12: 3. Construimos los límites y animamos la cámara
+                        val bounds = boundsBuilder.build()
+                        val padding = 150 // Espacio en píxeles (margen) entre la ruta y el borde de la pantalla
+
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+
+                    } catch (ex: IllegalArgumentException) {
+                        Log.e("MapFragment", "Polyline inválida recibida", ex)
+                        Toast.makeText(requireContext(), "No se pudo dibujar la ruta recibida.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    // Función extraída correctamente al nivel de la clase
+    private fun clearRutaPolyline() {
+        rutaPolylines.forEach { it.remove() }
+        rutaPolylines.clear()
+    }
+
     private fun observarCoordenadas() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -134,11 +227,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     latLng ?: return@collect
                     if (!::googleMap.isInitialized) return@collect
                     origenMarker?.remove()
+                    // Punto verde personalizado
+                    val markerIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_start)
+
                     origenMarker = googleMap.addMarker(
                         MarkerOptions()
                             .position(latLng)
                             .title("Mi ubicación")
-                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                            .icon(markerIcon) // <-- Asignamos el icono aquí
                     )
                     googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
                 }
@@ -150,11 +246,14 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                     latLng ?: return@collect
                     if (!::googleMap.isInitialized) return@collect
                     destinoMarker?.remove()
+                    // La bandera roja personalizada
+                    val markerIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_destination)
+
                     destinoMarker = googleMap.addMarker(
                         MarkerOptions()
                             .position(latLng)
                             .title("Destino")
-                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                            .icon(markerIcon) // <-- Asignamos el icono aquí
                     )
                     googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
                 }
@@ -163,7 +262,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun configurarBotonesAccion() {
-        // Lógica de la "X"
         ivClearText.setOnClickListener {
             etDestino.text.clear()
             etDestino.isEnabled = true
@@ -172,18 +270,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             placesAdapter.submitList(emptyList())
         }
 
-        // Lógica de Confirmar Ubicación
         btnConfirmarUbicacion.setOnClickListener {
             etDestino.isEnabled = false
             ivClearText.visibility = View.GONE
             btnConfirmarUbicacion.visibility = View.GONE
             btnCambiarDestino.visibility = View.VISIBLE
 
-            // Enviar la orden al ViewModel para llamar al backend (NestJS)
             viewModel.solicitarRutaSegura()
         }
 
-        // Lógica de Cambiar Destino — vuelve al flujo de búsqueda
         btnCambiarDestino.setOnClickListener {
             btnCambiarDestino.visibility = View.GONE
             etDestino.text.clear()
@@ -191,11 +286,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             ivClearText.visibility = View.GONE
             rvSugerencias.visibility = View.GONE
             placesAdapter.submitList(emptyList())
+
             destinoMarker?.remove()
             destinoMarker = null
+
+            // T-10: Aseguramos que la ruta se borre al cambiar de destino
+            clearRutaPolyline()
+
             viewModel.clearDestino()
 
-            // Volver la cámara a la ubicación de origen
             viewModel.coordenadaOrigen.value?.let { origen ->
                 if (::googleMap.isInitialized) {
                     googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(origen, 16f))
@@ -210,9 +309,7 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
     private fun configurarBuscador() {
         placesAdapter = PlacesAdapter { prediction ->
-            // Activamos bandera para evitar recargar búsquedas
             isProgrammaticChange = true
-
             rvSugerencias.visibility = View.GONE
             placesAdapter.submitList(emptyList())
 
@@ -249,7 +346,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     }
 
     private fun buscarSugerencias(query: String) {
-        // Restricción geográfica a Pichincha para sugerencias más relevantes
         val request = FindAutocompletePredictionsRequest.builder()
             .setQuery(query)
             .setCountry("EC")
@@ -276,8 +372,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         placesClient.fetchPlace(request).addOnSuccessListener { response ->
             val place = response.place
             place.latLng?.let { destino ->
-                // setDestino valida que esté dentro de Pichincha.
-                // Si acepta, observarCoordenadas() colocará el marcador y moverá la cámara.
                 viewModel.setDestino(destino)
             }
         }.addOnFailureListener {
@@ -293,8 +387,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
             if (location != null) {
                 val miUbicacion = LatLng(location.latitude, location.longitude)
-                // T-04: setOrigen valida que esté dentro de Pichincha.
-                // Si acepta, observarCoordenadas() colocará el marcador y moverá la cámara.
                 viewModel.setOrigen(miUbicacion)
             } else {
                 Toast.makeText(
@@ -330,13 +422,41 @@ class MapFragment : Fragment(), OnMapReadyCallback {
         }
     }
 
+    private fun observarCarga() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Escuchamos la variable isLoadingRoute que ya tenías en tu ViewModel
+                viewModel.isLoadingRoute.collect { isLoading ->
+                    if (isLoading) {
+                        layoutLoading.visibility = View.VISIBLE
+                        ocultarTeclado(requireView()) // Ocultamos teclado para que se vea bien
+                    } else {
+                        layoutLoading.visibility = View.GONE
+                    }
+                }
+            }
+        }
+    }
+
+    // T-11: Función para convertir un Vector Drawable en un BitmapDescriptor para el mapa
+    private fun vectorToBitmapDescriptor(context: Context, @DrawableRes vectorResId: Int): BitmapDescriptor? {
+        val vectorDrawable = ContextCompat.getDrawable(context, vectorResId) ?: return null
+        vectorDrawable.setBounds(0, 0, vectorDrawable.intrinsicWidth, vectorDrawable.intrinsicHeight)
+
+        // ¡Usamos createBitmap en lugar del constructor directo!
+        val bitmap = createBitmap(vectorDrawable.intrinsicWidth, vectorDrawable.intrinsicHeight)
+        val canvas = Canvas(bitmap)
+        vectorDrawable.draw(canvas)
+
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    }
+
     override fun onMapReady(map: GoogleMap) {
         googleMap = map
         googleMap.uiSettings.isZoomControlsEnabled = false
         googleMap.uiSettings.isCompassEnabled = true
         googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(viewModel.quitoLocation, viewModel.defaultZoom))
 
-        // Solicitamos permiso al usuario en cuanto el mapa esté listo
         solicitarPermisosUbicacion()
     }
 }

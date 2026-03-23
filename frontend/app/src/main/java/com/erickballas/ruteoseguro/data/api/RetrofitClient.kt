@@ -11,7 +11,8 @@ object RetrofitClient {
     // Emulador Android Studio  → "http://10.0.2.2:3000/"
     // Dispositivo físico (WiFi) → "http://192.168.X.X:3000/"  (tu IP local)
     // Producción (Azure)        → "https://tu-app-alertify.azurewebsites.net/"
-private val baseUrl: String by lazy {
+
+    private val baseUrl: String by lazy {
         val configuredUrl = BuildConfig.BASE_URL.trim()
         require(configuredUrl.isNotEmpty()) {
             "BASE_URL no está configurada. Declara BASE_URL en frontend/local.properties"
@@ -21,16 +22,17 @@ private val baseUrl: String by lazy {
 
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
             .build()
     }
 
     private val retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(baseUrl)
-            .client(okHttpClient) // <-- Le inyectamos el cliente paciente aquí
+                .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }

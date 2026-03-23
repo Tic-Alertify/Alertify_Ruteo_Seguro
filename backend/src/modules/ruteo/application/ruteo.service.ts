@@ -61,7 +61,7 @@ export class RuteoService {
     this.logger.log('Construyendo grafo en Bounding Box desde Azure SQL…');
     const inicio = Date.now();
 
-    const MARGEN_GRADOS = 0.01; 
+    const MARGEN_GRADOS = 0.02; 
 
     const minLat = Math.min(origenLat, destinoLat) - MARGEN_GRADOS;
     const maxLat = Math.max(origenLat, destinoLat) + MARGEN_GRADOS;
@@ -93,7 +93,7 @@ export class RuteoService {
     for (const nodo of grafo.nodos.values()) {
       // Magia: Solo consideramos nodos que ya sepamos que tienen calles conectadas en este vecindario
       const vecinos = grafo.getVecinos(nodo.id);
-      if (vecinos.length === 0) continue; 
+      if (vecinos.length < 2) continue; 
 
       const dist = haversineMetros(lat, lng, nodo.lat, nodo.lng);
       
