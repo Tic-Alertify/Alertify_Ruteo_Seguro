@@ -1,0 +1,3 @@
+# Ignore Postman collections and environments
+postman/
+.postman/

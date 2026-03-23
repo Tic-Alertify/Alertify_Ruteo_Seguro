@@ -5,13 +5,20 @@ import { Arista } from './infrastructure/entities/arista.entity';
 import { Incidente } from './infrastructure/entities/incidente.entity';
 import { RuteoController } from './presentation/ruteo.controller';
 import { RuteoService } from './application/ruteo.service';
+import { NodoRepository } from './infrastructure/repositories/nodo.repository';
+import { AristaRepository } from './infrastructure/repositories/arista.repository';
+import { MotorAlgoritmoService } from './application/motor-algoritmo.service';
 
 @Module({
   imports: [
-    // Registra las entidades para que este módulo las pueda usar
     TypeOrmModule.forFeature([Nodo, Arista, Incidente]),
   ],
-  controllers: [RuteoController], 
-  providers: [RuteoService],      
+  controllers: [RuteoController],
+  providers: [
+    RuteoService,
+    NodoRepository,
+    AristaRepository,
+    MotorAlgoritmoService,
+  ],
 })
 export class RuteoModule {}

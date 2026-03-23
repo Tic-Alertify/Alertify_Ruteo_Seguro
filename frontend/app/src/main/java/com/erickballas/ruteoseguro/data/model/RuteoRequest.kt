@@ -2,7 +2,7 @@ package com.erickballas.ruteoseguro.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// Este es el JSON que enviaremos a NestJS
+// Este es el JSON que enviaremos
 data class RuteoRequest(
     @SerializedName("origenLat") val origenLat: Double,
     @SerializedName("origenLng") val origenLng: Double,

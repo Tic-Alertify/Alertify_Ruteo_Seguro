@@ -6,5 +6,6 @@
     <string name="a_d_nde_quieres_ir">¿A dónde quieres ir?</string>
     <string name="limpiar_b_squeda">Limpiar búsqueda</string>
     <string name="confirmar_ubicaci_n">Confirmar ubicación</string>
+    <string name="calculando_ruta_segura">Calculando ruta segura...</string>
     <string name="cambiar_destino">Cambiar destino</string>
 </resources>

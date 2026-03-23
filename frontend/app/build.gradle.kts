@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
@@ -17,6 +19,25 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val properties = Properties()
+        val localPropertiesFile = project.rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.inputStream().use(properties::load)
+        }
+
+        val rawBaseUrl = properties.getProperty("BASE_URL")?.trim()
+        val sanitizedBaseUrl = rawBaseUrl
+            ?.trim('"')
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+
+        val baseUrlLiteral = "\"${sanitizedBaseUrl ?: "http://10.0.2.2:3000/"}\""
+        buildConfigField("String", "BASE_URL", baseUrlLiteral)
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {

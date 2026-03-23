@@ -9,7 +9,7 @@ object Constants {
     // Emulador Android Studio  → "http://10.0.2.2:3000/"
     // Dispositivo físico (WiFi) → "http://192.168.X.X:3000/"
     // Producción (Azure)        → "https://tu-app-alertify.azurewebsites.net/"
-    const val BASE_URL = "http://10.0.2.2:3000/"
+    //const val BASE_URL = "http://10.0.2.2:3000/"
 
     // ─── Área de cobertura: Provincia de Pichincha ──────────────────────────
     // Polígono descargado de OSM — coordenadas en LatLng(lat, lon)

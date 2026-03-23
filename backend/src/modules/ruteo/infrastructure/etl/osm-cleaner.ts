@@ -105,6 +105,8 @@ async function cleanMap() {
               target: validRefs[validRefs.length - 1],
               nodes: validRefs,
               type: highwayType,
+              // NUEVO: Extraemos la etiqueta oneway, por defecto es 'no'
+              oneway: currentWay.tags['oneway'] || 'no', 
             });
 
             validRefs.forEach((ref) => usedNodeIds.add(ref));

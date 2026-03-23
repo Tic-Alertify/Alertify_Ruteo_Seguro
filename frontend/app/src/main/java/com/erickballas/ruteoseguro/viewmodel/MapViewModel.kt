@@ -76,33 +76,39 @@ class MapViewModel : ViewModel() {
         val origen = _coordenadaOrigen.value
         val destino = _coordenadaDestino.value
 
+        Log.d("MapViewModel", "solicitarRutaSegura() — origen=$origen | destino=$destino")
+
         if (origen == null || destino == null) {
             _errorMessage.value = "Debes definir un origen y un destino válidos"
+            Log.w("MapViewModel", "Solicitud cancelada: origen o destino nulos")
             return
         }
 
+        Log.d("MapViewModel", "Enviando petición → (${origen.latitude}, ${origen.longitude}) → (${destino.latitude}, ${destino.longitude})")
         _isLoadingRoute.value = true
 
         viewModelScope.launch {
             try {
-                val response = repository.obtenerRutaSegura(
+
+                val resultado = repository.obtenerRutaSegura(
                     origenLat  = origen.latitude,
                     origenLng  = origen.longitude,
                     destinoLat = destino.latitude,
                     destinoLng = destino.longitude
                 )
 
-                if (response.isSuccessful && response.body() != null) {
-                    val ruteoData = response.body()!!
+                if (resultado.isSuccess) {
+                    val ruteoData = resultado.getOrNull()!!
                     Log.d("MapViewModel", "Ruta OK — Tiempo: ${ruteoData.tiempoEstimado}, Riesgo: ${ruteoData.nivelRiesgo}")
                     _rutaPolyline.value = ruteoData.rutaGeometria
                 } else {
-                    _errorMessage.value = "Error del servidor (${response.code()}). Intenta de nuevo."
-                    Log.e("MapViewModel", "Error servidor: ${response.code()}")
+                    val excepcion = resultado.exceptionOrNull()
+                    _errorMessage.value = "Error al calcular la ruta. Intenta de nuevo."
+                    Log.e("MapViewModel", "Fallo en el repositorio: ${excepcion?.message}")
                 }
             } catch (e: Exception) {
-                _errorMessage.value = "Sin conexión. Verifica tu internet e intenta de nuevo."
-                Log.e("MapViewModel", "Excepción de red: ${e.message}")
+                _errorMessage.value = "Error inesperado en la aplicación."
+                Log.e("MapViewModel", "Excepción de corrutina: ${e.message}")
             } finally {
                 _isLoadingRoute.value = false
             }
