@@ -1,0 +1,31 @@
+CREATE OR ALTER PROCEDURE dbo.SP_Limpiar_Incidentes_Expirados
+    @horas_caducidad INT = 2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        --OBLIGAMOS a usar solo bloqueo de fila (ROWLOCK) con índice espacial
+        UPDATE a
+        SET a.peso_riesgo = 
+            CASE 
+                WHEN a.peso_riesgo - (i.nivel_gravedad * 1000) < 1.0 THEN 1.0 
+                ELSE a.peso_riesgo - (i.nivel_gravedad * 1000) 
+            END
+        FROM dbo.ARISTAS a WITH(INDEX(SPATIAL_IX_Aristas_Geometria), ROWLOCK)
+        INNER JOIN dbo.INCIDENTES i 
+            ON a.trayectoria.STIntersects(i.ubicacion.STBuffer(300)) = 1 
+        WHERE i.fecha_reporte <= DATEADD(hour, -@horas_caducidad, GETDATE());
+
+        DELETE FROM dbo.INCIDENTES 
+        WHERE fecha_reporte <= DATEADD(hour, -@horas_caducidad, GETDATE());
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO

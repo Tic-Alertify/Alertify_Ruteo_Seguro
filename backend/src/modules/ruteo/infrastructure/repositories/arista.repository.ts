@@ -18,14 +18,14 @@ export class AristaRepository {
    * Aprovecha al 100% el índice espacial SPATIAL_IX_Aristas_Geometria.
    * En lugar de descargar 3.8 millones de calles, solo descarga las necesarias para la ruta.
    */
-  async findAristasEnBoundingBox(minLat: number, minLng: number, maxLat: number, maxLng: number): Promise<AristaDomain[]> {
-    this.logger.debug(`Extrayendo aristas en Bounding Box: [${minLat}, ${minLng}] a [${maxLat}, ${maxLng}]`);
+async findAristasEnBoundingBox(minLat: number, minLng: number, maxLat: number, maxLng: number): Promise<AristaDomain[]> {
+    this.logger.debug(`Extrayendo aristas en Bounding Box Espacial...`);
 
-    // Polígono cerrado (WKT) que dibuja el rectángulo en el mapa. 
-    // Orden de puntos: Abajo-Izquierda, Abajo-Derecha, Arriba-Derecha, Arriba-Izquierda, Abajo-Izquierda (cierre)
+    // Polígono con la regla de la Mano Izquierda (Anti-horario) requerida por SQL Server
     const bboxWkt = `POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))`;
 
-  const query = `
+    // 🚀 OBLIGAMOS al motor a usar el Índice Espacial
+    const query = `
       SELECT 
         id_arista, 
         id_nodo_origen, 
@@ -33,11 +33,11 @@ export class AristaRepository {
         distancia_metros, 
         peso_riesgo, 
         velocidad_base 
-      FROM dbo.ARISTAS WITH(INDEX(SPATIAL_IX_Aristas_Geometria)) -- Forzamos el uso del índice
-      WHERE trayectoria.Filter(geography::STGeomFromText(@0, 4326)) = 1
+      FROM dbo.ARISTAS WITH(INDEX(SPATIAL_IX_Aristas_Geometria), NOLOCK)
+      WHERE trayectoria.STIntersects(geography::STGeomFromText(@0, 4326)) = 1
     `;
     
-    // Ejecutamos pasando el polígono como parámetro seguro
+    // Pasamos el polígono de forma segura
     const resultados: Array<any> = await this.aristaRepo.manager.query(query, [bboxWkt]);
 
     this.logger.debug(`Se encontraron ${resultados.length} aristas en el cuadrante.`);

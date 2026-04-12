@@ -8,6 +8,7 @@ import { RuteoService } from './application/ruteo.service';
 import { NodoRepository } from './infrastructure/repositories/nodo.repository';
 import { AristaRepository } from './infrastructure/repositories/arista.repository';
 import { MotorAlgoritmoService } from './application/motor-algoritmo.service';
+import { IncidenteCleanupService } from './application/incidente-cleanup.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MotorAlgoritmoService } from './application/motor-algoritmo.service';
     NodoRepository,
     AristaRepository,
     MotorAlgoritmoService,
+    IncidenteCleanupService,
   ],
 })
 export class RuteoModule {}

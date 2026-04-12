@@ -76,7 +76,7 @@ DB_SYNCHRONIZE=false
 Ejecutar:
 
 ```bash
-npm run start:dev    # Servidor en http://localhost:3000
+npm run start:dev    # Servidor en http://localhost:3001
 ```
 
 ### Pipeline ETL (carga de datos cartográficos)
@@ -94,8 +94,10 @@ Abrir la carpeta `frontend/` en Android Studio. Configurar en `local.properties`
 
 ```properties
 MAPS_API_KEY=tu_api_key_de_google_maps
-BASE_URL=http://10.0.2.2:3000/
+BASE_URL=http://10.0.2.2:3001/
 ```
+
+Nota: el backend expone la API en `http://localhost:3001/api` (ver `backend/src/main.ts`).
 
 Compilar y ejecutar en emulador o dispositivo físico.
 
@@ -105,8 +107,16 @@ Compilar y ejecutar en emulador o dispositivo físico.
 |---|---|---|
 | `POST` | `/api/ruteo/calcular` | Calcula ruta segura entre dos coordenadas GPS |
 | `GET` | `/api/ruteo/incidentes` | Devuelve incidentes activos |
+| `POST` | `/api/webhook/incidente` | Recibe incidentes externos y penaliza riesgo en calles cercanas |
 
-Documentación interactiva disponible en `http://localhost:3000/api` (Swagger UI).
+Documentación interactiva disponible en `http://localhost:3001/api` (Swagger UI).
+
+## Sprints
+
+- [docs/Sprint_1.md](docs/Sprint_1.md)
+- [docs/Sprint_2.md](docs/Sprint_2.md)
+- [docs/Sprint_3.md](docs/Sprint_3.md)
+- [docs/Sprint_4.md](docs/Sprint_4.md) — Webhook + Stored Procedures + limpieza automática de incidentes
 
 ## Algoritmo
 

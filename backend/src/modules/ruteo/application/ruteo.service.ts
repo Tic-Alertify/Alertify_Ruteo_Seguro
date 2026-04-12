@@ -57,17 +57,24 @@ export class RuteoService {
     return [];
   }
 
-  private async obtenerGrafoParaRuta(origenLat: number, origenLng: number, destinoLat: number, destinoLng: number): Promise<GrafoDomain> {
+private async obtenerGrafoParaRuta(origenLat: number, origenLng: number, destinoLat: number, destinoLng: number): Promise<GrafoDomain> {
     this.logger.log('Construyendo grafo en Bounding Box desde Azure SQL…');
     const inicio = Date.now();
 
-    const MARGEN_GRADOS = 0.02; 
+    // 1. Calculamos la distancia recta aproximada (en grados) entre el origen y destino
+    const distGrados = Math.sqrt(Math.pow(destinoLat - origenLat, 2) + Math.pow(destinoLng - origenLng, 2));
+
+    // 2. MARGEN DINÁMICO: 
+    // - Si están cerca, damos un margen de ~500 metros (0.005).
+    // - Si están lejos, damos un margen mayor para permitir desvíos (máximo 0.015 para no saturar la RAM).
+    const MARGEN_GRADOS = Math.min(Math.max(distGrados * 0.5, 0.005), 0.015);
 
     const minLat = Math.min(origenLat, destinoLat) - MARGEN_GRADOS;
     const maxLat = Math.max(origenLat, destinoLat) + MARGEN_GRADOS;
     const minLng = Math.min(origenLng, destinoLng) - MARGEN_GRADOS;
     const maxLng = Math.max(origenLng, destinoLng) + MARGEN_GRADOS;
 
+    // 3. Descarga en paralelo
     const [nodos, aristas] = await Promise.all([
       this.nodoRepository.findNodosEnBoundingBox(minLat, minLng, maxLat, maxLng),
       this.aristaRepository.findAristasEnBoundingBox(minLat, minLng, maxLat, maxLng),
@@ -79,8 +86,7 @@ export class RuteoService {
 
     this.logger.log(`Grafo de sector listo: ${nodos.length} nodos, ${aristas.length} aristas — ${Date.now() - inicio} ms`);
     return grafo;
-  }
-
+}
   /**
    * NUEVO: Snap en Memoria RAM
    * Itera sobre los nodos descargados y calcula el Haversine. 
