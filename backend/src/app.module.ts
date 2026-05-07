@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { WebhookModule } from './modules/webhook/webhook.module';
 
 import { Nodo } from './modules/ruteo/infrastructure/entities/nodo.entity';
 import { Arista } from './modules/ruteo/infrastructure/entities/arista.entity';
@@ -9,8 +10,12 @@ import { Incidente } from './modules/ruteo/infrastructure/entities/incidente.ent
 import { RuteoModule } from './modules/ruteo/ruteo.module';
 import { databaseConfig, appConfig } from './config/env.config';
 
+import { ScheduleModule } from '@nestjs/schedule';
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
+    
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],
@@ -30,7 +35,7 @@ import { databaseConfig, appConfig } from './config/env.config';
         synchronize: configService.get<boolean>('database.synchronize'),
         options: {
           encrypt: true,
-          trustServerCertificate: false,
+          trustServerCertificate: true,
           enableArithAbort: true,
         },
         // Aumentamos los timeouts para consultas espaciales y carga inicial del grafo.
@@ -43,6 +48,7 @@ import { databaseConfig, appConfig } from './config/env.config';
     }),
 
     RuteoModule,
+    WebhookModule,
   ],
   controllers: [],
   providers: [],

@@ -4,7 +4,7 @@
 
 ---
 
-## T-02 — Interfaz para búsqueda de direcciones con autocompletado ✅
+## T-02 — Interfaz para búsqueda de direcciones con autocompletado
 
 **RS-32 | E-03 Visualización y Navegación**
 
@@ -29,7 +29,7 @@ El usuario puede escribir un destino en un campo de texto y recibir sugerencias 
 
 ---
 
-## T-03 — Captura de coordenadas de inicio y fin ✅
+## T-03 — Captura de coordenadas de inicio y fin 
 
 **RS-33 | E-03 Visualización y Navegación**
 
@@ -65,7 +65,7 @@ El sistema obtiene automáticamente la ubicación GPS del usuario como origen y 
 
 ---
 
-## T-04 — Validar que las coordenadas estén dentro de Quito ✅
+## T-04 — Validar que las coordenadas estén dentro de Quito
 
 **RS-34 | E-03 Visualización y Navegación**
 
@@ -142,7 +142,7 @@ Solución: la cámara y los marcadores ahora se controlan **únicamente** desde 
 
 ---
 
-## T-05 — Estructuración de controladores para el ruteo ✅
+## T-05 — Estructuración de controladores para el ruteo
 
 **RS-35 | E-02 Motor de Cálculo**
 
@@ -202,7 +202,7 @@ app.useGlobalPipes(new ValidationPipe({
 
 ---
 
-## T-06 — Implementación del algoritmo asumiendo la variable de riesgo ✅
+## T-06 — Implementación del algoritmo asumiendo la variable de riesgo
 
 **RS-36 | E-02 Motor de Cálculo**
 
@@ -268,7 +268,7 @@ get pesoTotal(): number {
 
 ---
 
-## T-07 — Obtención de grafos (nodos/aristas) y sus pesos ✅
+## T-07 — Obtención de grafos (nodos/aristas) y sus pesos 
 
 **RS-37 | E-02 Motor de Cálculo**
 
@@ -343,7 +343,7 @@ agregarNodo(nodo) / agregarArista(arista) / getVecinos(idNodo)
 
 ---
 
-## T-08 — Transformación de la información geográfica y exposición ✅
+## T-08 — Transformación de la información geográfica y exposición
 
 **RS-38 | E-02 Motor de Cálculo**
 

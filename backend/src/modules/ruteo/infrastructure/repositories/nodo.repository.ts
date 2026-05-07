@@ -25,31 +25,33 @@ export class NodoRepository implements INodoRepository {
    * NUEVO: Extrae SOLO los nodos que están dentro de un cuadrante geográfico (Bounding Box).
    * Aprovecha al 100% el índice espacial SPATIAL_IX_Nodos_Ubicacion.
    */
-  async findNodosEnBoundingBox(minLat: number, minLng: number, maxLat: number, maxLng: number): Promise<NodoDomain[]> {
-    this.logger.debug(`Extrayendo nodos en Bounding Box: [${minLat}, ${minLng}] a [${maxLat}, ${maxLng}]`);
+async findNodosEnBoundingBox(minLat: number, minLng: number, maxLat: number, maxLng: number): Promise<NodoDomain[]> {
+    this.logger.debug(`Extrayendo nodos en Bounding Box Espacial...`);
 
-    // Polígono WKT del Bounding Box
     const bboxWkt = `POLYGON((${minLng} ${minLat}, ${maxLng} ${minLat}, ${maxLng} ${maxLat}, ${minLng} ${maxLat}, ${minLng} ${minLat}))`;
 
+    // 🚀 Truco de Rendimiento: Extraemos .Lat y .Long directamente de la variable geography
+    // sin tener que pasar por STAsText() ni gastar CPU en NestJS parseando textos.
     const query = `
       SELECT 
         id_nodo, 
-        ubicacion.STAsText() AS ubicacion_wkt, 
+        ubicacion.Lat AS latitud, 
+        ubicacion.Long AS longitud, 
         es_interseccion 
-      FROM dbo.NODOS
-      WHERE ubicacion.Filter(geography::STGeomFromText(@0, 4326)) = 1
+      FROM dbo.NODOS WITH(INDEX(SPATIAL_IX_Nodos_Ubicacion), NOLOCK)
+      WHERE ubicacion.STIntersects(geography::STGeomFromText(@0, 4326)) = 1
     `;
 
     const filas: Array<any> = await this.nodoRepo.manager.query(query, [bboxWkt]);
+    
     this.logger.debug(`Se encontraron ${filas.length} nodos en el cuadrante.`);
 
     return filas.map((f) => {
-      const { lat, lng } = parsearUbicacionWkt(f.ubicacion_wkt);
       return new NodoDomain({ 
         id: String(f.id_nodo), 
         esInterseccion: Boolean(f.es_interseccion), 
-        lat, 
-        lng 
+        lat: Number(f.latitud), 
+        lng: Number(f.longitud) 
       });
     });
   }

@@ -1,0 +1,33 @@
+CREATE OR ALTER PROCEDURE dbo.SP_Registrar_Y_Penalizar_Incidente
+    @id_incidente INT,
+    @latitud FLOAT,
+    @longitud FLOAT,
+    @nivel_gravedad INT,
+    @tipo VARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @punto_incidente GEOGRAPHY = geography::Point(@latitud, @longitud, 4326);
+        
+        INSERT INTO dbo.INCIDENTES (id_incidente, ubicacion, fecha_reporte, nivel_gravedad, tipo)
+        VALUES (@id_incidente, @punto_incidente, GETDATE(), @nivel_gravedad, @tipo);
+
+        -- SOLUCIÓN DE RENDIMIENTO: Creamos un polígono circular y forzamos el Index Espacial
+        DECLARE @area_busqueda GEOGRAPHY = @punto_incidente.STBuffer(300);
+
+        UPDATE A
+        SET A.peso_riesgo = A.peso_riesgo + (@nivel_gravedad * 1000)
+        FROM dbo.ARISTAS A WITH(INDEX(SPATIAL_IX_Aristas_Geometria))
+        WHERE A.trayectoria.STIntersects(@area_busqueda) = 1;
+
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH
+END;
+GO

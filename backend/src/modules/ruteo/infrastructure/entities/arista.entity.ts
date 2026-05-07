@@ -3,7 +3,7 @@ import { Nodo } from './nodo.entity';
 
 @Entity('ARISTAS')
 export class Arista {
-  @PrimaryColumn({ type: 'bigint' })
+ @PrimaryColumn({ type: 'varchar', length: 100 })
   id_arista: string; // NO es autogenerado, usaremos el ID de OSM
 
   @Column({ type: 'bigint' })

@@ -4,11 +4,12 @@ import { NodoDomain } from './nodo.domain';
  * Representa una arista del grafo con su peso compuesto.
  */
 export class AristaDomain {
+
   idArista: string;
   idNodoOrigen: string;
   idNodoDestino: string;
   distanciaMetros: number;
-  pesoRiesgo: number;   // escala 1.0 (sin riesgo) → N (muy peligroso)
+  pesoRiesgo: number = 1.0;   // escala 1.0 (sin riesgo) → N (muy peligroso)
   velocidadBase: number; // km/h
 
   /** Peso final que usa el algoritmo: distancia ponderada por riesgo */
