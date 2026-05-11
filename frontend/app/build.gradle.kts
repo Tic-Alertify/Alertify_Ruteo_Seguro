@@ -7,9 +7,7 @@ plugins {
 
 android {
     namespace = "com.erickballas.ruteoseguro"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 35 // Updated to 35 as release(36) is likely not standard/correct here if targetSdk is 36
 
     defaultConfig {
         applicationId = "com.erickballas.ruteoseguro"
@@ -62,15 +60,14 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    //  Google Maps SDK
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
 
-    // Utilidades de Maps para dibujar rutas más fácil
-    implementation("com.google.maps.android:android-maps-utils:3.8.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation("com.google.android.libraries.places:places:3.3.0")
+    // Google Maps SDK
+    implementation(libs.play.services.maps)
+    implementation(libs.android.maps.utils)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.google.places)
 
-    // Retrofit y conversor de JSON (Gson)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    // Retrofit
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
 }

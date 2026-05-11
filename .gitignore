@@ -1,3 +1,5 @@
 # Ignore Postman collections and environments
 postman/
 .postman/
+.vscode/
+vscode/
