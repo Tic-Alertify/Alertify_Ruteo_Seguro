@@ -129,7 +129,7 @@ class MapViewModel : ViewModel() {
                 _errorMessage.value = "Desvío detectado. Recalculando ruta segura..."
 
                 // T-18: Disparar nueva petición automáticamente
-                solicitarRutaSegura()
+                solicitarRutaSegura(mostrarLoading = false)
             }
         } catch (e: Exception) {
             Log.e("MapViewModel", "Error al decodificar ruta para desvío: ${e.message}")
@@ -171,7 +171,7 @@ class MapViewModel : ViewModel() {
 
     // ─── Solicitud de ruta al backend ───────────────────────────────────────
 
-    fun solicitarRutaSegura() {
+    fun solicitarRutaSegura(mostrarLoading: Boolean = true) {
         val origen = _coordenadaOrigen.value
         val destino = _coordenadaDestino.value
 
@@ -184,7 +184,9 @@ class MapViewModel : ViewModel() {
         }
 
         Log.d("MapViewModel", "Enviando petición → (${origen.latitude}, ${origen.longitude}) → (${destino.latitude}, ${destino.longitude})")
-        _isLoadingRoute.value = true
+        if (mostrarLoading) {
+            _isLoadingRoute.value = true
+        }
 
         viewModelScope.launch {
             try {
@@ -213,7 +215,9 @@ class MapViewModel : ViewModel() {
                 _errorMessage.value = "Error inesperado en la aplicación."
                 Log.e("MapViewModel", "Excepción de corrutina: ${e.message}")
             } finally {
-                _isLoadingRoute.value = false
+                if (mostrarLoading) {
+                    _isLoadingRoute.value = false
+                }
 
                 // 🛑 T-18 y T-19: Liberamos el escudo.
                 // Si el usuario vuelve a desviarse más adelante, el sistema podrá volver a recalcular.

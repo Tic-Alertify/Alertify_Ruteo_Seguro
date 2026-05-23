@@ -96,6 +96,8 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     private var lastRouteIndex = 0
     private val routeProgressToleranceMeters = 60.0
     private val routeProgressMinIndexStep = 1
+    private val routeProgressFallbackMaxDistanceMeters = 120f
+    private val routeProgressSearchWindow = 300
 
     private var routeAnimator: ValueAnimator? = null
     private val routeBaseColor = "#1E88E5".toColorInt()
@@ -318,10 +320,15 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             )
         }
 
-        if (idx < 0 || idx <= lastRouteIndex) return
+        if (idx < 0) {
+            val (closestIndex, closestDistance) = findClosestRouteIndex(currentLatLng)
+            if (closestIndex < 0 || closestDistance > routeProgressFallbackMaxDistanceMeters) return
+            idx = closestIndex
+        }
+
+        if (idx <= lastRouteIndex) return
         if (idx - lastRouteIndex < routeProgressMinIndexStep && idx < rutaPuntos.lastIndex) return
 
-        lastRouteIndex = idx
         val remaining = rutaPuntos.subList(idx, rutaPuntos.size)
         if (remaining.size < 2) {
             clearRutaPolyline()
@@ -330,6 +337,34 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
         val (newPolylines, _) = buildRoutePolylines(remaining)
         setRutaPolylineInstant(newPolylines)
+        rutaPuntos = remaining
+        lastRouteIndex = 0
+    }
+
+    private fun findClosestRouteIndex(currentLatLng: LatLng): Pair<Int, Float> {
+        if (rutaPuntos.isEmpty()) return -1 to Float.MAX_VALUE
+
+        val start = (lastRouteIndex - 10).coerceAtLeast(0)
+        val end = (lastRouteIndex + routeProgressSearchWindow).coerceAtMost(rutaPuntos.lastIndex)
+
+        var bestIndex = -1
+        var bestDistance = Float.MAX_VALUE
+
+        for (i in start..end) {
+            val distance = distanceMetersBetween(currentLatLng, rutaPuntos[i])
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestIndex = i
+            }
+        }
+
+        return bestIndex to bestDistance
+    }
+
+    private fun distanceMetersBetween(a: LatLng, b: LatLng): Float {
+        val result = FloatArray(1)
+        Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, result)
+        return result[0]
     }
 
     private fun colorWithAlpha(baseColor: Int, alpha: Int): Int {
