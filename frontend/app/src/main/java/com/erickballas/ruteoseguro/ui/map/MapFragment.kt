@@ -3,8 +3,12 @@
 package com.erickballas.ruteoseguro.ui.map
 
 import android.Manifest
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.location.Location
@@ -58,6 +62,7 @@ import kotlinx.coroutines.launch
 import androidx.core.graphics.toColorInt
 import com.google.android.gms.maps.model.BitmapDescriptor
 import androidx.core.graphics.createBitmap
+import com.erickballas.ruteoseguro.location.TrackingService
 
 class MapFragment : Fragment(), OnMapReadyCallback {
 
@@ -82,9 +87,22 @@ class MapFragment : Fragment(), OnMapReadyCallback {
     // Marcadores de origen y destino en el mapa
     private var origenMarker: Marker? = null
     private var destinoMarker: Marker? = null
+    private var isNavigationMode = false
 
     // Lista para guardar la ruta y poder borrarla después
     private val rutaPolylines = mutableListOf<Polyline>()
+
+    private var rutaPuntos: List<LatLng> = emptyList()
+    private var lastRouteIndex = 0
+    private val routeProgressToleranceMeters = 60.0
+    private val routeProgressMinIndexStep = 1
+    private val routeProgressFallbackMaxDistanceMeters = 120f
+    private val routeProgressSearchWindow = 300
+
+    private var routeAnimator: ValueAnimator? = null
+    private val routeBaseColor = "#1E88E5".toColorInt()
+    private val routeWidth = 16f
+    private val routeFadeDurationMs = 350L
 
 
     private lateinit var layoutLoading: View
@@ -152,57 +170,29 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                 viewModel.rutaPolyline.collect { encodedPolyline ->
                     if (!::googleMap.isInitialized) return@collect
 
-                    // Limpiamos la ruta anterior siempre que haya un cambio
-                    clearRutaPolyline()
-
-                    if (encodedPolyline.isNullOrBlank()) return@collect
+                    if (encodedPolyline.isNullOrBlank()) {
+                        clearRutaPolyline()
+                        return@collect
+                    }
 
                     try {
                         val puntos = PolyUtil.decode(encodedPolyline)
-                        if (puntos.isEmpty()) return@collect
-
-                        // T-12: 1. Preparamos el constructor de la "caja" de límites
-                        val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
-
-                        val max_points_per_polyline = 9500
-                        var index = 0
-
-                        while (index < puntos.size) {
-                            val endExclusive = minOf(index + max_points_per_polyline, puntos.size)
-                            val segment = ArrayList<LatLng>()
-
-                            if (index != 0) {
-                                segment.add(puntos[index - 1])
-                            }
-                            segment.addAll(puntos.subList(index, endExclusive))
-
-                            // Dibujamos este segmento y lo guardamos en la lista
-                            val polyline = googleMap.addPolyline(
-                                PolylineOptions()
-                                    .addAll(segment)
-                                    .width(16f)
-                                    .color("#1E88E5".toColorInt())
-                                    .startCap(RoundCap())
-                                    .endCap(RoundCap())
-                                    .jointType(JointType.ROUND)
-                                    .geodesic(true)
-                                    .zIndex(2f)
-                            )
-                            rutaPolylines.add(polyline)
-
-                            // T-12: 2. Metemos todos los puntos del segmento en la caja
-                            for (punto in segment) {
-                                boundsBuilder.include(punto)
-                            }
-
-                            index = endExclusive
+                        if (puntos.isEmpty()) {
+                            clearRutaPolyline()
+                            return@collect
                         }
 
-                        // T-12: 3. Construimos los límites y animamos la cámara
+                        rutaPuntos = puntos
+                        lastRouteIndex = 0
+
+                        val (newPolylines, boundsBuilder) = buildRoutePolylines(puntos)
+
+                        // T-12: Construimos los límites y animamos la cámara
                         val bounds = boundsBuilder.build()
                         val padding = 150 // Espacio en píxeles (margen) entre la ruta y el borde de la pantalla
 
                         googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+                        replaceRutaPolyline(newPolylines)
 
                     } catch (ex: IllegalArgumentException) {
                         Log.e("MapFragment", "Polyline inválida recibida", ex)
@@ -215,36 +205,223 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
     // Función extraída correctamente al nivel de la clase
     private fun clearRutaPolyline() {
+        routeAnimator?.cancel()
+        routeAnimator = null
         rutaPolylines.forEach { it.remove() }
         rutaPolylines.clear()
+        rutaPuntos = emptyList()
+        lastRouteIndex = 0
+    }
+
+    private fun buildRoutePolylines(
+        puntos: List<LatLng>
+    ): Pair<List<Polyline>, com.google.android.gms.maps.model.LatLngBounds.Builder> {
+        val boundsBuilder = com.google.android.gms.maps.model.LatLngBounds.Builder()
+        val newPolylines = mutableListOf<Polyline>()
+
+        val maxPointsPerPolyline = 9500
+        var index = 0
+
+        while (index < puntos.size) {
+            val endExclusive = minOf(index + maxPointsPerPolyline, puntos.size)
+            val segment = ArrayList<LatLng>()
+
+            if (index != 0) {
+                segment.add(puntos[index - 1])
+            }
+            segment.addAll(puntos.subList(index, endExclusive))
+
+            val polyline = googleMap.addPolyline(
+                PolylineOptions()
+                    .addAll(segment)
+                    .width(routeWidth)
+                    .color(colorWithAlpha(routeBaseColor, 0))
+                    .startCap(RoundCap())
+                    .endCap(RoundCap())
+                    .jointType(JointType.ROUND)
+                    .geodesic(true)
+                    .zIndex(2f)
+            )
+            newPolylines.add(polyline)
+
+            for (punto in segment) {
+                boundsBuilder.include(punto)
+            }
+
+            index = endExclusive
+        }
+
+        return newPolylines to boundsBuilder
+    }
+
+    private fun replaceRutaPolyline(newPolylines: List<Polyline>) {
+        val oldPolylines = rutaPolylines.toList()
+        routeAnimator?.cancel()
+
+        if (oldPolylines.isEmpty()) {
+            newPolylines.forEach { it.color = colorWithAlpha(routeBaseColor, 255) }
+            rutaPolylines.clear()
+            rutaPolylines.addAll(newPolylines)
+            return
+        }
+
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = routeFadeDurationMs
+            addUpdateListener { animation ->
+                val fraction = animation.animatedValue as Float
+                val newAlpha = (fraction * 255).toInt()
+                val oldAlpha = ((1f - fraction) * 255).toInt()
+
+                newPolylines.forEach { it.color = colorWithAlpha(routeBaseColor, newAlpha) }
+                oldPolylines.forEach { it.color = colorWithAlpha(routeBaseColor, oldAlpha) }
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    oldPolylines.forEach { it.remove() }
+                }
+
+                override fun onAnimationCancel(animation: Animator) {
+                    oldPolylines.forEach { it.remove() }
+                }
+            })
+        }
+
+        routeAnimator = animator
+        rutaPolylines.clear()
+        rutaPolylines.addAll(newPolylines)
+        animator.start()
+    }
+
+    private fun setRutaPolylineInstant(newPolylines: List<Polyline>) {
+        routeAnimator?.cancel()
+        rutaPolylines.forEach { it.remove() }
+        rutaPolylines.clear()
+        newPolylines.forEach { it.color = colorWithAlpha(routeBaseColor, 255) }
+        rutaPolylines.addAll(newPolylines)
+    }
+
+    private fun updateRouteProgress(currentLatLng: LatLng) {
+        if (rutaPuntos.size < 2) return
+        if (!::googleMap.isInitialized) return
+
+        var idx = PolyUtil.locationIndexOnPath(
+            currentLatLng,
+            rutaPuntos,
+            false,
+            routeProgressToleranceMeters
+        )
+
+        if (idx < 0) {
+            idx = PolyUtil.locationIndexOnPath(
+                currentLatLng,
+                rutaPuntos,
+                false,
+                routeProgressToleranceMeters * 2
+            )
+        }
+
+        if (idx < 0) {
+            val (closestIndex, closestDistance) = findClosestRouteIndex(currentLatLng)
+            if (closestIndex < 0 || closestDistance > routeProgressFallbackMaxDistanceMeters) return
+            idx = closestIndex
+        }
+
+        if (idx <= lastRouteIndex) return
+        if (idx - lastRouteIndex < routeProgressMinIndexStep && idx < rutaPuntos.lastIndex) return
+
+        val remaining = rutaPuntos.subList(idx, rutaPuntos.size)
+        if (remaining.size < 2) {
+            clearRutaPolyline()
+            return
+        }
+
+        val (newPolylines, _) = buildRoutePolylines(remaining)
+        setRutaPolylineInstant(newPolylines)
+        rutaPuntos = remaining
+        lastRouteIndex = 0
+    }
+
+    private fun findClosestRouteIndex(currentLatLng: LatLng): Pair<Int, Float> {
+        if (rutaPuntos.isEmpty()) return -1 to Float.MAX_VALUE
+
+        val start = (lastRouteIndex - 10).coerceAtLeast(0)
+        val end = (lastRouteIndex + routeProgressSearchWindow).coerceAtMost(rutaPuntos.lastIndex)
+
+        var bestIndex = -1
+        var bestDistance = Float.MAX_VALUE
+
+        for (i in start..end) {
+            val distance = distanceMetersBetween(currentLatLng, rutaPuntos[i])
+            if (distance < bestDistance) {
+                bestDistance = distance
+                bestIndex = i
+            }
+        }
+
+        return bestIndex to bestDistance
+    }
+
+    private fun distanceMetersBetween(a: LatLng, b: LatLng): Float {
+        val result = FloatArray(1)
+        Location.distanceBetween(a.latitude, a.longitude, b.latitude, b.longitude, result)
+        return result[0]
+    }
+
+    private fun colorWithAlpha(baseColor: Int, alpha: Int): Int {
+        val safeAlpha = alpha.coerceIn(0, 255)
+        return (baseColor and 0x00FFFFFF) or (safeAlpha shl 24)
     }
 
     private fun observarCoordenadas() {
+        // ---------------------------------------------------------
+        // 1. Observador del ORIGEN (Con Transición Suave - T-19)
+        // ---------------------------------------------------------
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.coordenadaOrigen.collect { latLng ->
                     latLng ?: return@collect
                     if (!::googleMap.isInitialized) return@collect
-                    origenMarker?.remove()
-                    // Punto verde personalizado
-                    val markerIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_start)
 
-                    origenMarker = googleMap.addMarker(
-                        MarkerOptions()
-                            .position(latLng)
-                            .title("Mi ubicación")
-                            .icon(markerIcon) // <-- Asignamos el icono aquí
-                    )
-                    googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                    if (origenMarker == null) {
+                        // 1. Nace como la BANDERA VERDE original
+                        val markerIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_start)
+
+                        origenMarker = googleMap.addMarker(
+                            MarkerOptions()
+                                .position(latLng)
+                                .title("Mi ubicación")
+                                .icon(markerIcon)
+                                .zIndex(3f)
+                        )
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
+                    } else {
+                        // 2. Transición suave (se desliza sin importar si es bandera o flecha)
+                        origenMarker?.position = latLng
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+                    }
+
+                    if (isNavigationMode) {
+                        val heading = viewModel.origenHeading.value
+                        if (heading != null) {
+                            origenMarker?.rotation = heading
+                        }
+                        updateRouteProgress(latLng)
+                    }
                 }
             }
         }
+
+        // ---------------------------------------------------------
+        // 2. Observador del DESTINO (Bandera roja estática)
+        // ---------------------------------------------------------
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.coordenadaDestino.collect { latLng ->
                     latLng ?: return@collect
                     if (!::googleMap.isInitialized) return@collect
-                    destinoMarker?.remove()
+
+                    destinoMarker?.remove() // Para el destino sí está bien borrar y recrear
+
                     // La bandera roja personalizada
                     val markerIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_destination)
 
@@ -252,8 +429,9 @@ class MapFragment : Fragment(), OnMapReadyCallback {
                         MarkerOptions()
                             .position(latLng)
                             .title("Destino")
-                            .icon(markerIcon) // <-- Asignamos el icono aquí
+                            .icon(markerIcon)
                     )
+                    // Hacemos un zoom general al destino cuando se selecciona
                     googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16f))
                 }
             }
@@ -275,6 +453,24 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             btnConfirmarUbicacion.visibility = View.GONE
             btnCambiarDestino.visibility = View.VISIBLE
 
+            // 🚀 1. MODO CONDUCCIÓN: Cambiamos a la flecha azul
+            val navIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_nav_user)
+            origenMarker?.setIcon(navIcon)
+            origenMarker?.setAnchor(0.5f, 0.5f)
+            origenMarker?.isFlat = true
+            isNavigationMode = true
+            viewModel.origenHeading.value?.let { heading ->
+                origenMarker?.rotation = heading
+            }
+
+            // 🚀 2. ENCENDEMOS EL MOTOR DE GPS EN SEGUNDO PLANO
+            val serviceIntent = Intent(requireContext(), TrackingService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                requireContext().startForegroundService(serviceIntent)
+            } else {
+                requireContext().startService(serviceIntent)
+            }
+
             viewModel.solicitarRutaSegura()
         }
 
@@ -289,9 +485,19 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             destinoMarker?.remove()
             destinoMarker = null
 
-            // T-10: Aseguramos que la ruta se borre al cambiar de destino
-            clearRutaPolyline()
+            // 🛑 3. APAGAMOS EL GPS Y DEVOLVEMOS LA BANDERA VERDE
+            val serviceIntent = Intent(requireContext(), TrackingService::class.java)
+            requireContext().stopService(serviceIntent)
 
+            val flagIcon = vectorToBitmapDescriptor(requireContext(), R.drawable.ic_marker_start)
+            origenMarker?.setIcon(flagIcon)
+            origenMarker?.setAnchor(0.5f, 1.0f)
+            origenMarker?.isFlat = false
+            origenMarker?.rotation = 0f
+            isNavigationMode = false
+
+            // Limpiamos la ruta de la pantalla
+            clearRutaPolyline()
             viewModel.clearDestino()
 
             viewModel.coordenadaOrigen.value?.let { origen ->
@@ -305,7 +511,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
             imm.showSoftInput(etDestino, InputMethodManager.SHOW_IMPLICIT)
         }
     }
-
     private fun configurarBuscador() {
         placesAdapter = PlacesAdapter { prediction ->
             isProgrammaticChange = true
@@ -380,7 +585,6 @@ class MapFragment : Fragment(), OnMapReadyCallback {
 
     @SuppressLint("MissingPermission")
     private fun obtenerUbicacionActual() {
-        googleMap.isMyLocationEnabled = true
         googleMap.uiSettings.isMyLocationButtonEnabled = false
 
         fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->

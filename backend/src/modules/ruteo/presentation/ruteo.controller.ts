@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Post,
-  Get,
-  Body,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import {Controller, Post, Get, Body, HttpCode, HttpStatus,} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { RuteoService } from '../application/ruteo.service';
 import { CalcularRutaDto } from './dtos/calcular-ruta.dto';
