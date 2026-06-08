@@ -1,0 +1,96 @@
+-- ==============================================================================
+-- PROYECTO: ALERTIFY - MÓDULO DE RUTEO SEGURO
+-- AUTOR: ERICK SEBASTIÁN BALLAS PAGUAY
+-- MOTOR: AZURE SQL DATABASE
+-- DESCRIPCIÓN: Creación de topología de red vial y réplica de incidentes.
+-- ==============================================================================
+
+-- 1. Limpieza previa (Evita errores si ejecutas el script más de una vez)
+IF OBJECT_ID('dbo.ARISTAS', 'U') IS NOT NULL DROP TABLE dbo.ARISTAS;
+IF OBJECT_ID('dbo.NODOS', 'U') IS NOT NULL DROP TABLE dbo.NODOS;
+IF OBJECT_ID('dbo.INCIDENTES', 'U') IS NOT NULL DROP TABLE dbo.INCIDENTES;
+
+-- ==============================================================================
+-- 2. CREACIÓN DE TABLAS
+-- ==============================================================================
+
+-- Tabla NODOS: Representa los cruces de vías como puntos geográficos.
+CREATE TABLE dbo.NODOS (
+    id_nodo BIGINT PRIMARY KEY, -- Sin IDENTITY, porque usaremos los IDs nativos de OpenStreetMap
+    ubicacion GEOGRAPHY NOT NULL,
+    es_interseccion BIT NOT NULL DEFAULT 1
+);
+
+CREATE TABLE dbo.ARISTAS (
+    id_arista VARCHAR(100) NOT NULL,
+    id_nodo_origen BIGINT NOT NULL,
+    id_nodo_destino BIGINT NOT NULL,
+    trayectoria GEOGRAPHY NOT NULL,
+    distancia_metros FLOAT NOT NULL,
+    peso_riesgo FLOAT DEFAULT 1.0,
+    velocidad_base FLOAT DEFAULT 50.0,
+    
+    -- Definimos la Llave Primaria
+    CONSTRAINT PK_Aristas PRIMARY KEY (id_arista),
+    
+    -- Definimos las Llaves Foráneas que apuntan a tus NODOS
+    CONSTRAINT FK_Aristas_NodoOrigen FOREIGN KEY (id_nodo_origen) REFERENCES dbo.NODOS(id_nodo),
+    CONSTRAINT FK_Aristas_NodoDestino FOREIGN KEY (id_nodo_destino) REFERENCES dbo.NODOS(id_nodo)
+);
+
+
+-- Tabla INCIDENTES: Réplica optimizada solo con datos espaciales y de severidad.
+CREATE TABLE dbo.INCIDENTES (
+    id_incidente UNIQUEIDENTIFIER PRIMARY KEY, -- UUID según Figura 2.4
+    ubicacion GEOGRAPHY NOT NULL,
+    fecha_reporte DATETIME NOT NULL,
+    nivel_gravedad INT NOT NULL,
+    tipo VARCHAR(100) NOT NULL
+);
+
+-- ==============================================================================
+-- 3. CREACIÓN DE ÍNDICES ESPACIALES (Optimización Crítica para Ruteo)
+-- ==============================================================================
+
+-- Índices espaciales para acelerar la búsqueda de nodos cercanos y cálculos del algoritmo Dijkstra/A*
+CREATE SPATIAL INDEX SPATIAL_IX_Nodos_Ubicacion ON dbo.NODOS(ubicacion);
+CREATE SPATIAL INDEX SPATIAL_IX_Aristas_Geometria ON dbo.ARISTAS(trayectoria);
+CREATE SPATIAL INDEX SPATIAL_IX_Incidentes_Ubicacion ON dbo.INCIDENTES(ubicacion);
+
+PRINT '¡Base de datos del Módulo de Ruteo Seguro configurada exitosamente!';
+
+-- ==============================================================================
+-- 4. EJECUTAR UNA VEZ QUE LOS DATOS HAYAN SIDO CARGADOS, CORRIGE LOS INDICES POR CANTIDAD DE DATOS
+-- ==============================================================================
+
+-- 1. Recrear Índice Espacial para NODOS (Vital para el "Snap" de GPS)
+DROP INDEX IF EXISTS SPATIAL_IX_Nodos_Ubicacion ON dbo.NODOS;
+CREATE SPATIAL INDEX SPATIAL_IX_Nodos_Ubicacion ON dbo.NODOS(ubicacion);
+
+-- 2. Recrear Índice Espacial para ARISTAS (El que te faltaba)
+DROP INDEX IF EXISTS SPATIAL_IX_Aristas_Geometria ON dbo.ARISTAS;
+CREATE SPATIAL INDEX SPATIAL_IX_Aristas_Geometria ON dbo.ARISTAS(trayectoria);
+
+-- 3. Crear Índice para buscar intersecciones súper rápido
+DROP INDEX IF EXISTS IX_Nodos_EsInterseccion ON dbo.NODOS;
+CREATE NONCLUSTERED INDEX IX_Nodos_EsInterseccion ON dbo.NODOS(es_interseccion);
+
+-- 4. Índices Críticos para el Algoritmo A* (Viajar de nodo a nodo en milisegundos)
+DROP INDEX IF EXISTS IX_Aristas_NodoOrigen ON dbo.ARISTAS;
+CREATE NONCLUSTERED INDEX IX_Aristas_NodoOrigen ON dbo.ARISTAS(id_nodo_origen) 
+INCLUDE (id_nodo_destino, distancia_metros, peso_riesgo, velocidad_base);
+
+DROP INDEX IF EXISTS IX_Aristas_NodoDestino ON dbo.ARISTAS;
+CREATE NONCLUSTERED INDEX IX_Aristas_NodoDestino ON dbo.ARISTAS(id_nodo_destino);
+
+-- Recrear Índice Espacial para INCIDENTES
+DROP INDEX IF EXISTS SPATIAL_IX_Incidentes_Ubicacion ON dbo.INCIDENTES;
+CREATE SPATIAL INDEX SPATIAL_IX_Incidentes_Ubicacion ON dbo.INCIDENTES(ubicacion);
+
+
+-- 5. Forzamos a Azure a recalcular la matemática de las nuevas rutas
+UPDATE STATISTICS dbo.NODOS;
+UPDATE STATISTICS dbo.ARISTAS;
+
+-- Actualizar las estadísticas de la tabla
+UPDATE STATISTICS dbo.INCIDENTES;
